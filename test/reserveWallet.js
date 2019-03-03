@@ -20,9 +20,8 @@ const precision = new BigNumber(10).pow(18);
 
 contract('ReserveWallet', function(accounts) {
 
-  //need to have a test from time period failiures
 
-  it("Should init Fund Wallet and test token", async function () {
+  it("Should init Reserve Wallet and test token", async function () {
       // set account addresses
       admin = accounts[0];
       backupAdmin = accounts[1];
@@ -30,14 +29,16 @@ contract('ReserveWallet', function(accounts) {
       newAdmin = accounts[3];
       outsideAcc = accounts[4];
 
+      //reserve wallet
       reserveWalletInst = await ReserveWallet.new(admin, backupAdmin, {});
 
+      //token
       token = await TestToken.new("test", "tst", 18);
     });
 
     it("Should set reserve", async function () {
 
-      //failed non admin reserve set
+      //failed set reserve - due to non admin caller
       try {
           await reserveWalletInst.setReserve(reserve, {from:outsideAcc});
           assert(false, "throw was expected in line above.")
@@ -46,15 +47,17 @@ contract('ReserveWallet', function(accounts) {
           assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
       }
 
+      //correct set reserve
       await reserveWalletInst.setReserve(reserve, {from:admin});
     });
 
-    it("Should  test withdrawals, check balances", async function () {
+    it("Should test withdrawals for ether and token, check balances", async function () {
       let tokenInitBal = 100;
       let etherInitBal = 100;
       let etherWDAmt = 10;
       let tokenWDAmt = 10;
 
+      //init balances of ether and token
       await Helper.sendEtherWithPromise(accounts[9], reserveWalletInst.address, etherInitBal);
       await token.transfer(reserveWalletInst.address, tokenInitBal);
       let tokenBal = await token.balanceOf(reserveWalletInst.address);
@@ -64,7 +67,6 @@ contract('ReserveWallet', function(accounts) {
 
       //withdraw ether
       await reserveWalletInst.withdrawEther(etherWDAmt, admin, {from:admin});
-
       let etherBal2 = await Helper.getBalancePromise(reserveWalletInst.address);
       let expEthBal = await parseInt(etherBal) - parseInt(etherWDAmt);
       assert.equal(etherBal2, expEthBal, "incorrect balance");
@@ -76,16 +78,17 @@ contract('ReserveWallet', function(accounts) {
       assert.equal(tokenBal2, expTokBal, "incorrect balance");
     });
 
-    it("Should check failed withdrawals and check balances", async function () {
+    it("Should check failed withdrawals for ether and tokens and check balances", async function () {
       let tokenInitBal = 100;
       let etherWDAmt = 10;
       let tokenWDAmt = 10;
 
+      //initial balances
       let startTokenBal = await token.balanceOf(reserveWalletInst.address);
 
       let startEtherBal = await Helper.getBalancePromise(reserveWalletInst.address);
 
-      //failed withdraw non-admin
+      //failed withdraw due to non-admin caller
       try {
           await reserveWalletInst.withdrawEther(etherWDAmt, admin, {from:outsideAcc});
           assert(false, "throw was expected in line above.")
@@ -102,6 +105,7 @@ contract('ReserveWallet', function(accounts) {
           assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
       }
 
+      //end balances
       let endEtherBal = await Helper.getBalancePromise(reserveWalletInst.address);
       assert.equal(parseInt(startEtherBal), parseInt(endEtherBal), "incorrect balance");
 
@@ -114,6 +118,7 @@ contract('ReserveWallet', function(accounts) {
 
       let tokenBal = await token.balanceOf(reserveWalletInst.address);
 
+      //pull token call
       await reserveWalletInst.pullToken(token.address, tokAmount, {from:reserve});
 
       let tokenBal2 = await token.balanceOf(reserveWalletInst.address);
@@ -126,7 +131,7 @@ contract('ReserveWallet', function(accounts) {
 
       let startTokenBal = await token.balanceOf(reserveWalletInst.address);;
 
-      //failed pull token non-reserve
+      //failed pull token due to non-reserve caller
       try {
           await reserveWalletInst.pullToken(token.address, tokAmount, {from:outsideAcc});
           assert(false, "throw was expected in line above.")
@@ -144,6 +149,7 @@ contract('ReserveWallet', function(accounts) {
 
       let etherBal = await Helper.getBalancePromise(reserveWalletInst.address);
 
+      //pull ether call
       await reserveWalletInst.pullEther(ethAmount, {from:reserve});
 
       let etherBal2 = await Helper.getBalancePromise(reserveWalletInst.address);
@@ -156,7 +162,7 @@ contract('ReserveWallet', function(accounts) {
 
       let startEtherBal = await Helper.getBalancePromise(reserveWalletInst.address);
 
-      //failed pull ether non-reserve
+      //failed pull ether due to non-reserve caller
       try {
           await reserveWalletInst.pullEther(ethAmount, {from:outsideAcc});
           assert(false, "throw was expected in line above.")
@@ -174,6 +180,7 @@ contract('ReserveWallet', function(accounts) {
       let etherBal = await Helper.getBalancePromise(reserveWalletInst.address);
       let tokenBal = parseInt(await token.balanceOf(reserveWalletInst.address));
 
+      //check balance calls
       let returnEthBal = await reserveWalletInst.checkBalance(ethAddress);
       let returnTokBal = parseInt(await reserveWalletInst.checkBalance(token.address));
 
@@ -199,6 +206,7 @@ contract('ReserveWallet', function(accounts) {
           assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
       }
 
+      //correct change admin call
       await reserveWalletInst.changeAdmin(newAdmin, {from:backupAdmin});
 
       let adminAddr = await reserveWalletInst.admin.call();
@@ -208,6 +216,7 @@ contract('ReserveWallet', function(accounts) {
 
     it("Should test failed init of Fund Wallet", async function () {
 
+      //failed inits due to 0 address.
       try {
           reserveWalletInst = await ReserveWallet.new(0, backupAdmin, {});
           assert(false, "throw was expected in line above.")

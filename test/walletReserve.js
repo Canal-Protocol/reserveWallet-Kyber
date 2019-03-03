@@ -77,9 +77,6 @@ let indices = [];
 let compactBuyArr = [];
 let compactSellArr = [];
 
-//remember to remove walletForToken stuffs
-//check that when balances are changing that wont cause error in later tests
-
 contract('WalletReserve', function(accounts) {
   it("should init globals. init ConversionRates Inst, init tokens and add to pricing inst. set basic data per token.", async function () {
         // set account addresses
@@ -96,8 +93,7 @@ contract('WalletReserve', function(accounts) {
 
         currentBlock = priceUpdateBlock = await Helper.getCurrentBlock();
 
-//        console.log("current block: " + currentBlock);
-        //init contracts
+        //init conversion rates contract
         convRatesInst = await ConversionRates.new(admin, {});
 
         //set pricing general parameters
@@ -120,6 +116,7 @@ contract('WalletReserve', function(accounts) {
     });
 
     it("should set base prices + compact data price factor + step function. for all tokens.", async function () {
+
        //buy is ether to token rate. sale is token to ether rate. so sell == 1 / buy. assuming we have no spread.
        let tokensPerEther;
        let ethersPerToken;
@@ -160,29 +157,33 @@ contract('WalletReserve', function(accounts) {
        }
    });
 
-   //it shoudl init reserve and mockfundwallet here, send token/ether balance here instead
-
    it("should init reserve and reserve wallet and send tokens/ether to reserve wallet", async function () {
 
-        //set fund wallet here
+        //set reserve wallet here
         reserveWalletInst = await ReserveWallet.new(admin, backupAdmin);
 
+        //set wallet reserve
         reserveInst = await Reserve.new(network, convRatesInst.address, reserveWalletInst.address, admin);
 
+        //set reserve address in the wallet
         await reserveWalletInst.setReserve(reserveInst.address, {from:admin});
 
+        //set contract addresses in the reserve
         await reserveInst.setContracts(network, convRatesInst.address, 0);
 
+        //add opperators and alerters to the reserve
         await reserveInst.addOperator(operator);
         await reserveInst.addAlerter(alerter);
+
+        //set reserve address in the conv rate contract
         await convRatesInst.setReserveAddress(reserveInst.address);
+
+        //approve withdraw addresses in the reserve
         for (let i = 0; i < numTokens; ++i) {
             await reserveInst.approveWithdrawAddress(tokenAdd[i],accounts[0],true);
         }
 
-        //note may not have enough ether/tokens for the 2 rounds of testing
-        //send tokens and ethers
-        //set reserve balance. 10000 wei ether + per token 1000 wei ether value according to base price.
+        //send reserve wallet ether
         let reserveWalletEtherInit = 5000 * 2;
         await Helper.sendEtherWithPromise(accounts[9], reserveWalletInst.address, reserveWalletEtherInit);
 
@@ -191,7 +192,7 @@ contract('WalletReserve', function(accounts) {
 
         assert.equal(balance.valueOf(), reserveWalletEtherInit, "wrong ether balance");
 
-        //transfer tokens to reserve. each token same wei balance
+        //transfer tokens to reserve wallet. each token same wei balance
         for (let i = 0; i < numTokens; ++i) {
             token = tokens[i];
             let amount = (new BigNumber(reserveWalletEtherInit))*(baseBuyRate[i])/(precisionUnits);
@@ -224,10 +225,11 @@ contract('WalletReserve', function(accounts) {
     });
 
     //test reverted scenario for set fund wallet call
-    it("should test reverted scenario for set Fund Wallet call.", async function () {
+    it("should test reverted scenario for set Reserve Wallet call.", async function () {
         //legal call
         await reserveInst.setReserveWallet(reserveWalletInst.address, {from:admin});
 
+        //revert due to 0 address
         try {
             await reserveInst.setReserveWallet(0, {from:admin});
             assert(false, "throw was expected in line above.")
@@ -257,7 +259,7 @@ contract('WalletReserve', function(accounts) {
        //perform trade
        await reserveInst.trade(ethAddress, amountWei, tokenAdd[tokenInd], user1, buyRate, true, {from:network, value:amountWei});
 
-       //check higher ether balance on fundWallet
+       //check higher ether balance on Reserve Wallet
        expectedReserveWalletBalanceWei = (expectedReserveWalletBalanceWei * 1) + amountWei;
        expectedReserveWalletBalanceWei -= expectedReserveWalletBalanceWei % 1;
        let balance = await reserveInst.getBalance(ethAddress);
@@ -269,7 +271,7 @@ contract('WalletReserve', function(accounts) {
        let expectedTweiAmount = expectedRate*(amountWei)/(precisionUnits);
        assert.equal(tokenTweiBalance.valueOf(), expectedTweiAmount.valueOf(), "bad token balance");
 
-       //check lower token balance on fundWallet
+       //check lower token balance on Reserve Wallet
        reserveTokenBalance[tokenInd] -= expectedTweiAmount;
        reserveTokenImbalance[tokenInd] = reserveTokenImbalance[tokenInd]+(expectedTweiAmount); //imbalance represents how many missing tokens
        let reportedBalance = await reserveInst.getBalance(tokenAdd[tokenInd]);
@@ -306,7 +308,7 @@ contract('WalletReserve', function(accounts) {
         //perform trade
         await reserveInst.trade(tokenAdd[tokenInd], amountTwei, ethAddress, user2, sellRate, true, {from:network});
 
-        //check lower ether balance on fundWallet
+        //check lower ether balance on Reserve Wallet
         let amountWei = Math.floor((new BigNumber(amountTwei)*(expectedRate))/(precisionUnits));
         expectedReserveWalletBalanceWei = Math.floor((new BigNumber(expectedReserveWalletBalanceWei))-(amountWei));
         let balance = await reserveInst.getBalance(ethAddress);
@@ -321,7 +323,7 @@ contract('WalletReserve', function(accounts) {
 
         assert.equal(endTokenTweiBalance.valueOf(), expectedTokenTweiBalance.valueOf(), "bad token balance");
 
-        //check token balance on fundWallet was updated (higher)
+        //check token balance on Reserve Wallet was updated (higher)
         reserveTokenBalance[tokenInd] += (amountTwei * 1);
         reserveTokenImbalance[tokenInd] = reserveTokenImbalance[tokenInd].sub(amountTwei); //imbalance represents how many missing tokens
         let reportedBalance = await reserveInst.getBalance(tokenAdd[tokenInd]);
@@ -358,7 +360,7 @@ contract('WalletReserve', function(accounts) {
       //perform trade VALIDATION SET TO FALSE
       await reserveInst.trade(tokenAdd[tokenInd], amountTwei, ethAddress, user2, sellRate, false, {from:network});
 
-      //check lower ether balance on fundWallet
+      //check lower ether balance on Reserve Wallet
       let amountWei = Math.floor((new BigNumber(amountTwei)*(expectedRate))/(precisionUnits));
       expectedReserveWalletBalanceWei = Math.floor((new BigNumber(expectedReserveWalletBalanceWei))-(amountWei));
       let balance = await reserveInst.getBalance(ethAddress);
@@ -373,14 +375,14 @@ contract('WalletReserve', function(accounts) {
 
       assert.equal(endTokenTweiBalance.valueOf(), expectedTokenTweiBalance.valueOf(), "bad token balance");
 
-      //check token balance on fundWallet was updated (higher)
+      //check token balance on Reserve Wallet was updated (higher)
       reserveTokenBalance[tokenInd] += (amountTwei * 1);
       reserveTokenImbalance[tokenInd] = reserveTokenImbalance[tokenInd].sub(amountTwei); //imbalance represents how many missing tokens
       let reportedBalance = await reserveInst.getBalance(tokenAdd[tokenInd]);
       assert.equal(reportedBalance.valueOf(), reserveTokenBalance[tokenInd].valueOf(), "bad token balance on reserve");
     });
 
-    //should test sell trade reverted without token approved. -- maybe don't repeat
+
     it("should test sell trade reverted without token approved.", async function () {
         let tokenInd = 2;
         let token = tokens[tokenInd]; //choose some token
@@ -415,7 +417,8 @@ contract('WalletReserve', function(accounts) {
         await token.approve(reserveInst.address, amount, {from: network});
 
         await reserveInst.disableTrade({from:alerter});
-        //
+
+        //fail as disabled
         try {
             await reserveInst.trade(tokenAdd[tokenInd], amount, ethAddress, user2, sellRate, true, {from:network});
             assert(false, "throw was expected in line above.")
@@ -428,7 +431,6 @@ contract('WalletReserve', function(accounts) {
         await reserveInst.trade(tokenAdd[tokenInd], amount, ethAddress, user2, sellRate, true, {from:network});
     });
 
-    //should test trade reverted when conversion rate 0
     it("should test trade reverted when conversion rate 0.", async function () {
         let tokenInd = 2;
         let token = tokens[tokenInd]; //choose some token
@@ -439,7 +441,7 @@ contract('WalletReserve', function(accounts) {
         await token.transfer(network, amount);
         await token.approve(reserveInst.address, amount, {from: network});
 
-        //
+        //rate is 0
         try {
             await reserveInst.trade(tokenAdd[tokenInd], amount, ethAddress, user2, 0, true, {from:network});
             assert(false, "throw was expected in line above.")
@@ -450,7 +452,6 @@ contract('WalletReserve', function(accounts) {
         await reserveInst.trade(tokenAdd[tokenInd], amount, ethAddress, user2, sellRate, true, {from:network});
     });
 
-    //should test trade reverted when dest amount is 0
     it("should test trade reverted when dest amount is 0.", async function () {
         let tokenInd = 1;
         let token = tokens[tokenInd]; //choose some token
@@ -462,7 +463,7 @@ contract('WalletReserve', function(accounts) {
         await token.transfer(network, (amountLow*1 + amountHigh*1));
         await token.approve(reserveInst.address, (amountLow*1 + amountHigh*1), {from: network});
 
-        //
+        //fails as src amount is low
         try {
             await reserveInst.trade(tokenAdd[tokenInd], amountLow, ethAddress, user2, sellRate, true, {from:network});
             assert(false, "throw was expected in line above.")
@@ -475,7 +476,6 @@ contract('WalletReserve', function(accounts) {
         reserveTokenImbalance[tokenInd] = reserveTokenImbalance[tokenInd]-(amountHigh);
     });
 
-    //should test buy trade reverted when not sending correct ether value
     it("should test buy trade reverted when not sending correct ether value.", async function () {
         let tokenInd = 4;
         let token = tokens[tokenInd]; //choose some token
@@ -495,7 +495,6 @@ contract('WalletReserve', function(accounts) {
         await reserveInst.trade(ethAddress, amount, tokenAdd[tokenInd], user2, rate, true, {from:network, value:amount});
     });
 
-    //should test trade reverted when not sent from network
     it("should test trade reverted when not sent from network.", async function () {
         let tokenInd = 4;
         let token = tokens[tokenInd]; //choose some token
@@ -514,7 +513,6 @@ contract('WalletReserve', function(accounts) {
         await reserveInst.trade(ethAddress, amount, tokenAdd[tokenInd], user2, rate, true, {from:network, value:amount});
     });
 
-    //should test trade reverted when sending ether value with sell trade
     it("should test trade reverted when sending ether value with sell trade.", async function () {
        let tokenInd = 1;
        let token = tokens[tokenInd]; //choose some token
@@ -525,7 +523,7 @@ contract('WalletReserve', function(accounts) {
        await token.transfer(network, amount);
        await token.approve(reserveInst.address, amount, {from: network});
 
-       //
+       //sending ether value
        try {
            await reserveInst.trade(tokenAdd[tokenInd], amount, ethAddress, user2, sellRate, true, {from:network, value:3});
            assert(false, "throw was expected in line above.")
@@ -538,7 +536,6 @@ contract('WalletReserve', function(accounts) {
        reserveTokenImbalance[tokenInd] = reserveTokenImbalance[tokenInd]-(amount);
     });
 
-    //should approve withdraw address and withdraw. token and ether.
     it("should approve withdraw address and withdraw; token and ether.", async function () {
         let tokenInd = 1;
         let amount = 10;
@@ -566,7 +563,6 @@ contract('WalletReserve', function(accounts) {
         assert.equal(reportedBalance.valueOf(), expectedReserveWalletBalanceWei, "bad eth balance on reserve");
     });
 
-    //should test reverted scenarios for withdraw -- maybe don't repeat
     it ("should test reverted scenarios for withdraw", async function() {
         let tokenInd = 1;
         let amount = 10;
@@ -599,7 +595,6 @@ contract('WalletReserve', function(accounts) {
         }
     });
 
-    //should test get dest qty
     it ("should test get dest qty", async function() {
         let srcQty = 100;
         let rate = precision.div(2); //1 to 2. in precision units
@@ -618,7 +613,6 @@ contract('WalletReserve', function(accounts) {
         assert.equal(expectedDestQty.valueOf(), reportedDstQty.valueOf(), "unexpected dst qty");
     });
 
-    //should test get src qty
     it ("should test get src qty", async function() {
         let rate = precision.div(2); //1 to 2. in precision units
 
@@ -637,7 +631,6 @@ contract('WalletReserve', function(accounts) {
         assert.equal(expectedSrcQty.valueOf(), reportedSrcQty.valueOf(), "unexpected src qty");
     });
 
-    //should test get conversion rate options
     it ("should test get conversion rate options", async function() {
         let tokenInd = 3;
         let amountTwei = 3;
@@ -670,7 +663,6 @@ contract('WalletReserve', function(accounts) {
         assert.equal(sellRate.valueOf(), expectedRate.valueOf(), "unexpected rate.");
     });
 
-    //should test get conversion rate return 0 when sanity rate is lower the calculated rate
     it ("should test get conversion rate return 0 when sanity rate is lower the calculated rate", async function() {
         let tokenInd = 3;
         let token = tokens[tokenInd]; //choose some token
@@ -707,10 +699,8 @@ contract('WalletReserve', function(accounts) {
         await reserveInst.setContracts(network, convRatesInst.address, 0, {from:admin});
     });
 
-    //should zero reserve balance and see that get rate returns zero when not enough dest balance eth/token
     it("should zero reserve balance and see that get rate returns zero when not enough dest balance", async function() {
 
-      //fix so that token balance is returned to the reserve
         let tokenInd = 1;
         let amountTwei = maxPerBlockImbalance - 1;
         let token = tokens[tokenInd];
@@ -729,12 +719,10 @@ contract('WalletReserve', function(accounts) {
         assert.equal(rate.valueOf(), 0, "expected rate 0");
 
         //send funds back and then check again for non zero
-        //send balance back NEED TO CHECK
         await token.transfer(reserveWalletInst.address, balance);
         let balance2 = await reserveInst.getBalance(tokenAdd[tokenInd]);
     });
 
-    //should test can't init this contract with empty contracts (address 0)
     it("should test can't init this contract with empty contracts (address 0).", async function () {
         let reserve;
 

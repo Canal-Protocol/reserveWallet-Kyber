@@ -10,7 +10,7 @@ import "./KyberReserveInterface.sol";
 import "./ReserveWalletInterface.sol";
 
 
-/// @title Kyber Wallet Reserve contract
+/// @title Wallet Reserve contract - A reserve which stores tokens and ether in a seperate contract
 contract WalletReserve is KyberReserveInterface, Withdrawable, Utils {
 
     address public kyberNetwork;
@@ -237,9 +237,6 @@ contract WalletReserve is KyberReserveInterface, Withdrawable, Utils {
             0,
             block.number
         );
-
-        /*Trade not working - have a seperate function in reserve which is required by doTrade this seperate
-        function should collect and send tokens/eth between the reserve and fund - and there should be a success bool*/
 
         // collect src tokens (if eth forward to fund Wallet)
         if (srcToken == ETH_TOKEN_ADDRESS) {

@@ -1,7 +1,6 @@
 pragma solidity 0.4.18;
 
-/// @title Fund Wallet - Fund raising and distribution wallet according to stake and incentive scheme.
-/// @dev Not fully tested, use only in test environment.
+/// @title Reserve Wallet - A wallet to store tokens and ether, that allows an external source to pull its funds.
 
 
 import "./ERC20Interface.sol";
@@ -42,6 +41,7 @@ contract ReserveWallet {
         backupAdmin = _backupAdmin;
     }
 
+    //fallback
     function() public payable {
     }
 
@@ -58,21 +58,21 @@ contract ReserveWallet {
         admin = _newAdmin;
     }
 
-    /// @notice Funtion for admin to withdraw ERC20 token while fund is opperating.
-    /// @dev Only available to admin and in the opperating period
+    /// @notice Funtion for admin to withdraw ERC20 token.
+    /// @dev only available to admin
     function withdrawToken(ERC20 token, uint amount, address sendTo) external onlyAdmin {
         require(token.transfer(sendTo, amount));
         TokenWithdraw(token, amount, sendTo);
     }
 
-    /// @notice Funtion for admin to withdraw ERC20 token while fund is opperating.
-    /// @dev Only available to admin and in the opperating period
+    /// @notice Funtion for admin to withdraw ether.
+    /// @dev Only available to admin
     function withdrawEther(uint amount, address sendTo) external onlyAdmin {
         sendTo.transfer(amount);
         EtherWithdraw(amount, sendTo);
     }
 
-    //functions to allow trading with reserve address
+    //functions below are to allow trading with reserve/external address
 
     /// @dev send erc20token to the reserve address
     /// @param token ERC20 The address of the token contract
@@ -91,7 +91,7 @@ contract ReserveWallet {
         return true;
     }
 
-    ///@dev function to check balance only returns balances in opperating and liquidating periods
+    ///@dev function to check balance in this contract.
     function checkBalance(ERC20 token) public view returns (uint) {
         if (token == ETH_TOKEN_ADDRESS) {
             return this.balance;
