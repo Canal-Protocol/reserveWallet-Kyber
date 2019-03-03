@@ -1,6 +1,6 @@
 # Reserve Wallet and Kyber Integration
 
-This is built as a starting point for people building on the liquidity side of kyber - essentially it is a Reserve (Wallet Reserve) which stores all of its funds in a separate smart contract (Reserve Wallet), and the reserve pushes and pulls funds from that smart contract. Essentially it is a wallet integrated with the Reserve infrastructure, developers can build on the wallet side without having to do the integration work with kyber.
+This is built as a starting point for people building on the liquidity side of kyber - essentially it is a Reserve (Wallet Reserve) which stores all of its funds in a separate smart contract (Reserve Wallet), and the reserve pushes and pulls funds from that smart contract. It is a wallet integrated with the Reserve infrastructure, developers can build on the wallet side without having to do the integration work with kyber.
 
 ## Prerequisites
 
