@@ -80,7 +80,7 @@ let compactSellArr = [];
 //remember to remove walletForToken stuffs
 //check that when balances are changing that wont cause error in later tests
 
-contract('KyberFundReserve', function(accounts) {
+contract('WalletReserve', function(accounts) {
   it("should init globals. init ConversionRates Inst, init tokens and add to pricing inst. set basic data per token.", async function () {
         // set account addresses
         admin = accounts[0];
