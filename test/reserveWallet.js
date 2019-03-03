@@ -109,7 +109,7 @@ contract('ReserveWallet', function(accounts) {
       assert.equal(parseInt(startTokenBal), parseInt(endTokenBalance), "incorrect balance");
     });
 
-    it("Should pull token (successful in opperateP) and check balances", async function () {
+    it("Should pull token and check balances", async function () {
       let tokAmount = 10;
 
       let tokenBal = await token.balanceOf(reserveWalletInst.address);
@@ -139,7 +139,7 @@ contract('ReserveWallet', function(accounts) {
       assert.equal(parseInt(startTokenBal), parseInt(endTokenBalance), "incorrect balance");
     });
 
-    it("Should pull ether (successful in opperateP) and check balances", async function () {
+    it("Should pull ether and check balances", async function () {
       let ethAmount = 10;
 
       let etherBal = await Helper.getBalancePromise(reserveWalletInst.address);
@@ -169,7 +169,7 @@ contract('ReserveWallet', function(accounts) {
       assert.equal(parseInt(startEtherBal), parseInt(endEtherBal), "incorrect balance");
     });
 
-    it("Should check that checkBalance returns correct balances (both eth and token", async function () {
+    it("Should check that checkBalance returns correct balances (both eth and token)", async function () {
 
       let etherBal = await Helper.getBalancePromise(reserveWalletInst.address);
       let tokenBal = parseInt(await token.balanceOf(reserveWalletInst.address));
