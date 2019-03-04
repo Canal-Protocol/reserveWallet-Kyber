@@ -8,10 +8,10 @@ This is built as a starting point for people building on the liquidity side of k
 
 2. Truffle
 
-Install the latest Truffle v5 beta.
+Install the latest Truffle v5 as below
 
 ```
-sudo npm install -g truffle@5.0.0-beta.1
+npm install -g truffle@5.0.0-beta.1
 ```
 
 4. Install the rest of the NPM packages
